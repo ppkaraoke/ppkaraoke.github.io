@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <title>PowerPoint Karaoke</title>
+    <meta name="author" content="Émile Jeremias Ruff">
+    <link rel="icon" type="image/png" href="favicon.ico">
+
+    <link rel="stylesheet" href="cat-style.css" type="text/css">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+    
+<div class="iframe-div" id="iframeContainer"><!-- Hier wirds eingesetzt --></div>
+
+<script>
+(function() {
+    // Query-Parameter auslesen
+    const params = new URLSearchParams(window.location.search);
+    const src = params.get("src");
+
+    // Container holen
+    const container = document.getElementById("iframeContainer");
+
+    if (src) {
+        // iframe erstellen
+        const iframe = document.createElement("iframe");
+        iframe.src = src;
+        iframe.loading = "lazy";
+        iframe.allowFullscreen = true;
+        iframe.setAttribute("allow", "fullscreen");
+
+        // optional: etwas robuster gegen falsche Werte
+        iframe.style.width = "100%";
+        iframe.style.height = "100vh";
+        iframe.style.border = "none";
+
+        container.appendChild(iframe);
+    } else {
+        container.textContent = "Kein src-Parameter angegeben.";
+    }
+})();
+</script>
+
+</body>
+</html>

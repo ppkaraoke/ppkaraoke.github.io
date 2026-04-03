@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <title>PowerPoint Karaoke | Edit</title>
+    <meta name="author" content="Émile Jeremias Ruff">
+    <link rel="icon" type="image/png" href="favicon.ico">
+
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <style>
+        @font-face {
+            font-family: 'Lora';
+            src: url('m/Lora.ttf') format('truetype');
+        }
+
+        body {
+            background-color: #15202a;
+            color: white;
+            margin-left: 20%;
+            margin-right: 20%;
+        }
+
+        h1 {
+            margin-top: 5%;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 40px;
+        }
+
+        th, td {
+            border: 1px solid #444;
+            padding: 10px;
+            text-align: left;
+        }
+
+        th {
+            background: #1e2a36;
+        }
+
+        button {
+            cursor: pointer;
+            padding: 5px 10px;
+        }
+
+        .delete-btn {
+            border: none;
+            background-color: transparent;
+            font-size: 20px;
+        }
+
+        p {
+            font-size: 20px;
+            margin-bottom: 20px;
+            margin-top: 100px;
+        }
+
+        input {
+            margin: 5px 0;
+            padding: 8px;
+        }
+
+        #add-form {
+            display: flex;
+        }
+
+        #add-form div {
+            display: block;
+        }
+
+        #name, #file {
+            width: 90%;
+            margin-right: 20px;
+        }     
+
+        #add-form div:nth-of-type(2) {
+            width: 200px;
+        }
+
+        #file {
+            cursor: pointer;
+            padding: 0;
+            margin-top: 10px;
+        }
+
+        #file::file-selector-button {
+            background-color: transparent;
+            border: 1px solid white;
+            padding: 8px 20px;
+            margin-right: 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            color: white;
+        }
+
+        #file::file-selector-button:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+
+        #add-form button {
+            background-color: transparent;
+            color: white;
+            border: 1px solid white;
+            border-radius: 5px;
+            margin: 5px 0;
+            padding: 8px 15px;
+            margin-top: 10px;
+        }
+
+        #add-form button:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+    </style>
+</head>
+<body>
+    
+<h1>Edit</h1>
+
+<table>
+    <thead>
+        <tr><th>ID (preview)</th>
+            <th>Titel</th>
+            <th>SRC</th>
+            <th>Aktion</th>
+        </tr>
+    </thead>
+    <tbody id="table-body"></tbody>
+</table>
+
+<p>Eintrag hinzuf&uuml;gen:</p>
+<form id="add-form">
+    <div><input type="text" id="name" placeholder="Titel" required>
+         <input type="file" id="file" accept="image/png" required></div>
+    <div><input type="text" id="src" placeholder="iframe (Link)" required>
+         <button type="submit">Hinzufügen</button></div>
+</form>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPABASE_URL = "https://jgdbrtxptkfvxfovbsix.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpnZGJydHhwdGtmdnhmb3Zic2l4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY3MjIzMjksImV4cCI6MjA3MjI5ODMyOX0.LInNeWLI_Qk1cE1mLyfV6Fq_sZAt5kJkSTWvcpA5dYA";
+
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const tableBody = document.getElementById("table-body");
+const form = document.getElementById("add-form");
+
+async function shiftPreviews(deletedIndex) {
+    const { data, error } = await supabaseClient
+        .from("pp-karaoke")
+        .select("*")
+        .gt("preview", deletedIndex)
+        .order("preview", { ascending: true });
+
+    if (error) {
+        console.error(error);
+        return;
+    }
+
+    for (const row of data) {
+        const oldIndex = row.preview;
+        const newIndex = oldIndex - 1;
+
+        const oldFile = `${oldIndex}.png`;
+        const newFile = `${newIndex}.png`;
+
+        const { error: copyError } = await supabaseClient
+            .storage
+            .from("preview_pp")
+            .copy(oldFile, newFile);
+
+        if (copyError) {
+            console.error("Copy Fehler:", copyError);
+            continue;
+        }
+
+        await supabaseClient
+            .storage
+            .from("preview_pp")
+            .remove([oldFile]);
+
+        await supabaseClient
+            .from("pp-karaoke")
+            .update({ preview: newIndex })
+            .eq("preview", oldIndex);
+    }
+}
+
+async function loadTable() {
+    tableBody.innerHTML = "";
+
+    const { data, error } = await supabaseClient
+        .from("pp-karaoke")
+        .select("*")
+        .order("preview", { ascending: true });
+
+    if (error) {
+        console.error(error);
+        return;
+    }
+
+    data.forEach(row => {
+        const tr = document.createElement("tr");
+
+        tr.innerHTML = `
+            <td>${row.preview}</td>
+            <td>${row.name}</td>
+            <td>${row.src}</td>
+            <td><button class="delete-btn">❌</button></td>
+        `;
+
+        tr.querySelector("button").addEventListener("click", async () => {
+            if (!confirm("Wirklich löschen?")) return;
+
+            const deletedIndex = row.preview;
+            const fileName = `${deletedIndex}.png`;
+
+            await supabaseClient
+                .storage
+                .from("preview_pp")
+                .remove([fileName]);
+
+            await supabaseClient
+                .from("pp-karaoke")
+                .delete()
+                .eq("preview", deletedIndex);
+
+            await shiftPreviews(deletedIndex);
+
+            loadTable();
+        });
+
+        tableBody.appendChild(tr);
+    });
+}
+
+function extractSrcFromIframe(input) {
+    const match = input.match(/src\s*=\s*"([^"]+)"/i);
+    if (match) return match[1];
+
+    return null;
+}
+
+form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const name = document.getElementById("name").value;
+    const file = document.getElementById("file").files[0];
+    const rawInput = document.getElementById("src").value;
+    const src = extractSrcFromIframe(rawInput);
+
+    if (!src) {
+        alert("Kein gültiger iframe-src gefunden!");
+        return;
+    }
+
+    // nächste freie preview-ID finden
+    const { data } = await supabaseClient
+        .from("pp-karaoke")
+        .select("preview")
+        .order("preview", { ascending: false })
+        .limit(1);
+
+    const nextPreview = data.length ? data[0].preview + 1 : 1;
+    const fileName = `${nextPreview}.png`;
+
+    const { error: uploadError } = await supabaseClient
+        .storage
+        .from("preview_pp")
+        .upload(fileName, file, {
+            upsert: false
+        });
+
+    if (uploadError) {
+        alert("Upload fehlgeschlagen");
+        console.error(uploadError);
+        return;
+    }
+
+    const { error: insertError } = await supabaseClient
+        .from("pp-karaoke")
+        .insert([{
+            preview: nextPreview,
+            name: name,
+            src: src
+        }]);
+
+    if (insertError) {
+        alert("DB Fehler");
+        console.error(insertError);
+        return;
+    }
+
+    form.reset();
+    loadTable();
+});
+
+loadTable();
+</script>
+
+</body>
+</html>

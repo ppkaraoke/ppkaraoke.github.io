@@ -1,0 +1,174 @@
+<!DOCTYPE html><!-- 
+https://codepen.io/johanmouchet/pen/OXxvqM
+https://codepen.io/davidkpiano/pen/Xempjq
+https://codepen.io/carolineartz/pen/qBOEzQa
+https://codepen.io/Jopzik/pen/yLGMzOK
+-->
+<html lang="de">
+<head>
+    <title>PowerPoint Karaoke</title>
+    <meta name="author" content="&Eacute;mile Jeremias Ruff">
+    <link rel="icon" type="image/png" href="favicon.ico">
+
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <style>
+        @font-face {
+            font-family: 'Lora';
+            src: url('m/Lora.ttf') format('truetype');
+        }
+
+        body {
+            background-color: #15202a;
+            color: white;
+        }
+
+        h1 {
+            margin-left: 20%;
+            margin-top: 5%;
+        }
+
+        main {
+            margin-left: 20%;
+            margin-right: 20%;
+            display: flex;
+            flex-wrap: wrap;
+        }
+
+        .preview-div {
+            width: 42%;
+            margin-bottom: 5%;
+        }
+
+        .preview-div:nth-child(odd) {
+            margin-right: 5%;
+        }
+
+        img {
+            width: 100%;
+        }
+        
+        @media (max-width: 768px) {
+            body {
+                margin-top: -5%;
+            }
+        
+            h1 {
+                margin-top: 65%;
+            }
+        
+            main {
+                display: block;
+                margin-left: 5%;
+                width: 90%;
+            }
+
+            .preview-div {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<h1>PowerPoint Karaoke</h1> 
+
+<main>
+    <!-- auto einfügen -->
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPABASE_URL = "https://jgdbrtxptkfvxfovbsix.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpnZGJydHhwdGtmdnhmb3Zic2l4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY3MjIzMjksImV4cCI6MjA3MjI5ODMyOX0.LInNeWLI_Qk1cE1mLyfV6Fq_sZAt5kJkSTWvcpA5dYA";
+
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const main = document.querySelector("main");
+
+async function loadMetadata() {
+    const { data, error } = await supabaseClient
+        .from("pp-karaoke")
+        .select("preview, name, src");
+
+    if (error) {
+        console.error("DB Fehler:", error);
+        return {};
+    }
+
+    // Map: preview -> {name, src}
+    const map = {};
+    data.forEach(row => {
+        map[row.preview] = {
+            name: row.name,
+            src: row.src
+        };
+    });
+
+    return map;
+}
+
+function createPreviewDiv(imgUrl, index, meta) {
+    const div = document.createElement("div");
+    div.classList.add("preview-div");
+
+    const link = document.createElement("a");
+
+    if (meta) {
+        link.href = `pp.html?src=${encodeURIComponent(meta.src)}`;
+        link.title = meta.name;
+        link.target = "_blank";
+    } else {
+        // fallback (falls kein Eintrag existiert)
+        link.href = imgUrl;
+        link.title = "Unbekannt";
+    }
+
+    const img = document.createElement("img");
+    img.src = imgUrl;
+
+    link.appendChild(img);
+    div.appendChild(link);
+    main.appendChild(div);
+}
+
+async function loadImages() {
+    const metadataMap = await loadMetadata();
+
+    let i = 1;
+
+    while (true) {
+        const fileName = `${i}.png`;
+
+        const { data } = supabaseClient
+            .storage
+            .from("preview_pp")
+            .getPublicUrl(fileName);
+
+        const img = new Image();
+        img.src = data.publicUrl;
+
+        try {
+            await new Promise((resolve, reject) => {
+                img.onload = resolve;
+                img.onerror = reject;
+            });
+
+            const meta = metadataMap[i]; // 👈 Matching über preview = i
+            createPreviewDiv(data.publicUrl, i, meta);
+
+            i++;
+        } catch (e) {
+            break;
+        }
+    }
+}
+
+loadImages();
+</script>
+<script>
+    
+</script>
+
+</body>
+</html>
