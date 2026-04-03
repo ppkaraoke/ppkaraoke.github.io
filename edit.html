@@ -151,7 +151,7 @@ const form = document.getElementById("add-form");
 async function shiftPreviews(deletedIndex) {
     const { data, error } = await supabaseClient
         .from("pp-karaoke")
-        .select("*")
+        .select("id, preview")
         .gt("preview", deletedIndex)
         .order("preview", { ascending: true });
 
@@ -181,11 +181,19 @@ async function shiftPreviews(deletedIndex) {
             .storage
             .from("preview_pp")
             .remove([oldFile]);
+    }
 
-        await supabaseClient
+    for (const row of data) {
+        const newIndex = row.preview - 1;
+
+        const { error: updateError } = await supabaseClient
             .from("pp-karaoke")
             .update({ preview: newIndex })
-            .eq("preview", oldIndex);
+            .eq("id", row.id);
+
+        if (updateError) {
+            console.error("DB Fehler:", updateError);
+        }
     }
 }
 
